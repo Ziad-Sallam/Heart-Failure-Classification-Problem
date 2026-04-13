@@ -1,0 +1,27 @@
+DECISION TREE — RESULTS SUMMARY
+====================================================
+Best hyperparameters: {'max_depth': 10, 'min_samples_split': 2, 'min_samples_leaf': 2}
+Tree depth : 10
+Leaf count : 94
+
+Train
+  Accuracy   : 0.8255
+  F1 (macro) : 0.7894
+  F1 (binary): 0.7021
+  ROC-AUC    : 0.7727
+  Confusion Matrix: TN=398 FP=28 FN=84 TP=132
+
+Validation
+  Accuracy   : 0.8261
+  F1 (macro) : 0.7855
+  F1 (binary): 0.6923
+  ROC-AUC    : 0.7657
+  Confusion Matrix: TN=58 FP=3 FN=13 TP=18
+
+Test
+  Accuracy   : 0.6033
+  F1 (macro) : 0.5019
+  F1 (binary): 0.2772
+  ROC-AUC    : 0.5104
+  Confusion Matrix: TN=97 FP=25 FN=48 TP=14
+
