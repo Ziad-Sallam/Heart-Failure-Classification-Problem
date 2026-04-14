@@ -345,6 +345,16 @@ With 11 features, `sqrt` ≈ **3 features** evaluated per split.
 
 ### Results Summary
 
+#### Descision Tree
+
+| Split | Accuracy | F1 (binary) | ROC-AUC |
+|---|---|---|---|
+| Train | 0.9766 | 0.9790 | 0.9755 |
+| Validation | 0.9565 | 0.9623 | 0.9512 |
+| Test | 0.7826 | 0.8039| 0.7800 |
+
+Test confusion matrix: TN=62, FP=20, FN=20, TP=82
+
 #### Bagging
 
 | Split | Accuracy | F1 (binary) | ROC-AUC |

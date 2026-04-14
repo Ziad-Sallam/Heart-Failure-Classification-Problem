@@ -25,6 +25,7 @@ from data_preparation import prepare_data
 from models.decision_tree import DecisionTree
 from utils.evaluation import evaluate, compare_models
 from utils.tuning import grid_search
+from utils.report import save_html_report
 
 RANDOM_SEED = 42
 
@@ -99,7 +100,7 @@ def main(csv_path: str | None = None) -> None:
         split_results[split_name] = metrics
 
     # ------------------------------------------------------------------
-    # 4. Save results summary
+    # 4. Save results summary (text)
     # ------------------------------------------------------------------
     os.makedirs("results", exist_ok=True)
     summary_path = os.path.join("results", "decision_tree_results.txt")
@@ -120,7 +121,30 @@ def main(csv_path: str | None = None) -> None:
             f.write(f"  Confusion Matrix: TN={cm[0,0]} FP={cm[0,1]} "
                     f"FN={cm[1,0]} TP={cm[1,1]}\n\n")
 
-    print(f"\n[results] Summary saved to '{summary_path}'")
+        f.write("\nALL TUNING ITERATIONS (sorted by iteration)\n")
+        f.write("-" * 52 + "\n")
+        for r in sorted(all_results, key=lambda x: x["iteration"]):
+            f.write(
+                f"  #{r['iteration']:>3}  {r['params']}  "
+                f"→  f1_binary={r['score']:.4f}\n"
+            )
+
+    print(f"\n[results] Text summary saved to '{summary_path}'")
+
+    # ------------------------------------------------------------------
+    # 5. Save HTML report
+    # ------------------------------------------------------------------
+    html_path = os.path.join("results", "decision_tree_report.html")
+    save_html_report(
+        best_params   = best_params,
+        all_results   = all_results,
+        split_results = split_results,
+        tree_depth    = final_model.get_depth(),
+        leaf_count    = final_model.count_leaves(),
+        scoring       = "f1_binary",
+        output_path   = html_path,
+    )
+    print(f"[results] HTML report  saved to '{html_path}'")
 
 
 # ---------------------------------------------------------------------------
