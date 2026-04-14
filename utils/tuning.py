@@ -52,7 +52,7 @@ def grid_search(
     -------
     best_model   : fitted model with best hyperparameters.
     best_params  : dict of best hyperparameter values.
-    all_results  : list of {params, score} dicts (sorted best-first).
+    all_results  : list of {params, score, metrics} dicts (sorted best-first).
     """
     keys   = list(param_grid.keys())
     combos = list(itertools.product(*param_grid.values()))
@@ -61,17 +61,22 @@ def grid_search(
         print(f"[tune] Grid search: {len(combos)} combinations | scoring='{scoring}'")
 
     results = []
-    for combo in combos:
+    for i, combo in enumerate(combos, 1):
         params = dict(zip(keys, combo))
-        score, _ = _fit_and_score(
+        score, metrics = _fit_and_score(
             model_cls, params,
             X_train, y_train,
             X_val,   y_val,
             scoring, proba_method,
         )
-        results.append({"params": params, "score": score})
+        results.append({
+            "iteration": i,
+            "params":    params,
+            "score":     score,
+            "metrics":   metrics,
+        })
         if verbose:
-            print(f"  {params}  →  {scoring}={score:.4f}")
+            print(f"  [{i:>3}/{len(combos)}] {params}  →  {scoring}={score:.4f}")
 
     results.sort(key=lambda r: r["score"], reverse=True)
     best = results[0]
@@ -111,7 +116,7 @@ def random_search(
         print(f"[tune] Random search: {n_iter} iterations | scoring='{scoring}'")
 
     results = []
-    for _ in range(n_iter):
+    for i in range(1, n_iter + 1):
         params = {}
         for key, dist in param_distributions.items():
             if callable(dist):
@@ -119,15 +124,20 @@ def random_search(
             else:
                 params[key] = rng.choice(dist)
 
-        score, _ = _fit_and_score(
+        score, metrics = _fit_and_score(
             model_cls, params,
             X_train, y_train,
             X_val,   y_val,
             scoring, proba_method,
         )
-        results.append({"params": params, "score": score})
+        results.append({
+            "iteration": i,
+            "params":    params,
+            "score":     score,
+            "metrics":   metrics,
+        })
         if verbose:
-            print(f"  {params}  →  {scoring}={score:.4f}")
+            print(f"  [{i:>3}/{n_iter}] {params}  →  {scoring}={score:.4f}")
 
     results.sort(key=lambda r: r["score"], reverse=True)
     best = results[0]
