@@ -1,0 +1,26 @@
+ADABOOST ENSEMBLE — RESULTS SUMMARY
+====================================================
+Best hyperparameters : {'n_estimators': 50, 'max_depth': 2}
+Ensemble size        : 50 weak learners
+
+Train
+  Accuracy   : 0.8972
+  F1 (macro) : 0.8957
+  F1 (binary): 0.9081
+  ROC-AUC    : 0.9698
+  Confusion Matrix: TN=250 FP=37 FN=29 TP=326
+
+Validation
+  Accuracy   : 0.9130
+  F1 (macro) : 0.9120
+  F1 (binary): 0.9216
+  ROC-AUC    : 0.9646
+  Confusion Matrix: TN=37 FP=4 FN=4 TP=47
+
+Test
+  Accuracy   : 0.8696
+  F1 (macro) : 0.8686
+  F1 (binary): 0.8800
+  ROC-AUC    : 0.9134
+  Confusion Matrix: TN=72 FP=10 FN=14 TP=88
+
