@@ -261,3 +261,137 @@ At each node the algorithm:
 ## Adding More Models
 
 The modular design makes adding new classifiers straightforward. Create a new file in `models/` (e.g. `models/knn.py`) with `.fit()` and `.predict()` methods, then reuse `data_preparation`, `utils/evaluation`, and `utils/tuning` without any changes.
+
+## Ensemble Methods: Bagging & Random Forest
+
+This part extends the project with two from-scratch ensemble classifiers built on top of the existing `DecisionTree` implementation.
+
+---
+
+### New Files
+
+```
+heart_failure/
+├── models/
+│   ├── bagging.py            # Bagging ensemble (Bootstrap Aggregating)
+│   └── random_forest.py      # Random Forest (Bagging + random feature subsets)
+├── train_bagging.py          # Train, tune, and evaluate the Bagging ensemble
+└── train_random_forest.py    # Train, tune, and evaluate the Random Forest
+```
+
+---
+
+### How to Run
+
+```bash
+# Train and evaluate Bagging
+python train_bagging.py --csv data/heart.csv
+
+# Train and evaluate Random Forest
+python train_random_forest.py --csv data/heart.csv
+```
+
+Each script will:
+1. Load and preprocess the dataset via `data_preparation.py`
+2. Run grid search over hyperparameters on the validation set
+3. Retrain the best model on train + validation combined
+4. Evaluate on all three splits (Train / Validation / Test)
+5. Save a results summary to `results/`
+
+The Random Forest script additionally saves:
+- `results/rf_feature_importances.png` — Top-15 features by Mean Decrease in Impurity
+- `results/rf_confusion_matrix.png` — Test set confusion matrix heatmap
+
+---
+
+### How Bagging Works
+
+`BaggingClassifier` trains `n_estimators` independent `DecisionTree` instances, each on a **bootstrap sample** (random rows drawn *with replacement*) of the training data. Predictions are aggregated by **majority vote** (`predict`) or **averaged probabilities** (`predict_proba`). Because each tree sees a slightly different dataset, the ensemble reduces variance compared to a single tree.
+
+Key parameters used in tuning:
+
+| Parameter | Values searched |
+|---|---|
+| `n_estimators` | 10, 20, 50 |
+| `max_depth` | 3, 5, 10, None |
+| `min_samples_split` | 2, 5 |
+| `min_samples_leaf` | 1, 2 |
+
+**Best configuration:** `n_estimators=50, max_depth=5, min_samples_split=2, min_samples_leaf=1`
+
+---
+
+### How Random Forest Works
+
+`RandomForest` adds one critical change on top of Bagging: at **every split in every tree**, only a random subset of features is considered (`max_features='sqrt'` by default). This further decorrelates the trees beyond what bootstrap sampling alone achieves, reducing variance more and typically improving generalisation.
+
+> Bagging = bootstrap rows + **all features** per split  
+> Random Forest = bootstrap rows + **random feature subset** per split
+
+Key parameters used in tuning:
+
+| Parameter | Values searched |
+|---|---|
+| `n_estimators` | 50, 100, 200 |
+| `max_features` | `'sqrt'`, `'log2'` |
+| `max_depth` | 5, 10, None |
+| `min_samples_split` | 2, 5 |
+| `min_samples_leaf` | 1, 2 |
+
+**Best configuration:** `n_estimators=50, max_features='sqrt', max_depth=10, min_samples_split=2, min_samples_leaf=1`  
+With 11 features, `sqrt` ≈ **3 features** evaluated per split.
+
+---
+
+### Results Summary
+
+#### Bagging
+
+| Split | Accuracy | F1 (binary) | ROC-AUC |
+|---|---|---|---|
+| Train | 0.9237 | 0.9332 | 0.9726 |
+| Validation | 0.9239 | 0.9333 | 0.9605 |
+| Test | 0.8641 | 0.8804 | 0.9148 |
+
+Test confusion matrix: TN=67, FP=15, FN=10, TP=92
+
+#### Random Forest
+
+| Split | Accuracy | F1 (binary) | ROC-AUC |
+|---|---|---|---|
+| Train | 0.9735 | 0.9763 | 0.9983 |
+| Validation | 0.9565 | 0.9623 | 0.9959 |
+| Test | 0.9022 | 0.9143 | 0.9333 |
+
+Test confusion matrix: TN=70, FP=12, FN=6, TP=96
+
+Random Forest outperforms Bagging across every metric and every split, with the test F1 improving from **0.880 → 0.914** and ROC-AUC from **0.915 → 0.933**.
+
+---
+
+### Top Predictive Features (Random Forest)
+
+Based on Mean Decrease in Impurity across all 50 trees:
+
+| Rank | Feature | Importance |
+|---|---|---|
+| 1 | ChestPainType_ASY | 0.100 |
+| 2 | Cholesterol | 0.096 |
+| 3 | Oldpeak | 0.090 |
+| 4 | MaxHR | 0.087 |
+| 5 | ST_Slope_Up | 0.085 |
+
+Asymptomatic chest pain is the single strongest predictor, consistent with clinical knowledge that silent ischemia is a major heart failure risk factor.
+
+---
+
+### Feature Importance Implementation
+
+Feature importances are computed via **Mean Decrease in Impurity (MDI)**: for every internal node across all trees, the weighted information gain is accumulated per feature, then normalised to sum to 1:
+
+```python
+importances[feature] += n_samples_at_node × impurity_at_node
+importances /= importances.sum()
+```
+
+This is exposed through `RandomForest.feature_importances()` and visualised automatically when running `train_random_forest.py`.
