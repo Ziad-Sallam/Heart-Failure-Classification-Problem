@@ -1,0 +1,26 @@
+BAGGING ENSEMBLE — RESULTS SUMMARY
+====================================================
+Best hyperparameters : {'n_estimators': 50, 'max_depth': 5, 'min_samples_split': 2, 'min_samples_leaf': 1}
+Ensemble size        : 50 trees
+
+Train
+  Accuracy   : 0.9237
+  F1 (macro) : 0.9221
+  F1 (binary): 0.9332
+  ROC-AUC    : 0.9726
+  Confusion Matrix: TN=251 FP=36 FN=13 TP=342
+
+Validation
+  Accuracy   : 0.9239
+  F1 (macro) : 0.9224
+  F1 (binary): 0.9333
+  ROC-AUC    : 0.9605
+  Confusion Matrix: TN=36 FP=5 FN=2 TP=49
+
+Test
+  Accuracy   : 0.8641
+  F1 (macro) : 0.8616
+  F1 (binary): 0.8804
+  ROC-AUC    : 0.9148
+  Confusion Matrix: TN=67 FP=15 FN=10 TP=92
+

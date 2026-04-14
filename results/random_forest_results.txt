@@ -1,0 +1,26 @@
+RANDOM FOREST — RESULTS SUMMARY
+====================================================
+Best hyperparameters : {'n_estimators': 50, 'max_features': 'sqrt', 'max_depth': 10, 'min_samples_split': 2, 'min_samples_leaf': 1}
+Ensemble size        : 50 trees
+
+Train
+  Accuracy   : 0.9735
+  F1 (macro) : 0.9732
+  F1 (binary): 0.9763
+  ROC-AUC    : 0.9983
+  Confusion Matrix: TN=275 FP=12 FN=5 TP=350
+
+Validation
+  Accuracy   : 0.9565
+  F1 (macro) : 0.9555
+  F1 (binary): 0.9623
+  ROC-AUC    : 0.9959
+  Confusion Matrix: TN=37 FP=4 FN=0 TP=51
+
+Test
+  Accuracy   : 0.9022
+  F1 (macro) : 0.9002
+  F1 (binary): 0.9143
+  ROC-AUC    : 0.9333
+  Confusion Matrix: TN=70 FP=12 FN=6 TP=96
+
