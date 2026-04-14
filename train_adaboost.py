@@ -41,7 +41,7 @@ def main(csv_path: str | None = None) -> None:
     print("\n--- Tuning AdaBoost hyperparameters ---")
 
     param_grid = {
-        "n_estimators": [10, 50, 100],
+        "n_estimators": [10,25,50,75,100],
         "max_depth":    [1, 2],  # Depth 1 is a classic decision stump
     }
 

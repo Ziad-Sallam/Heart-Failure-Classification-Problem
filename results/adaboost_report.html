@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AdaBoost — Tuning & Results Report</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,300;9..144,700&display=swap');
+
+  :root {
+    /* Deep Purple & Neon Cyan Theme */
+    --bg:        #0d0b14;
+    --surface:   #151220;
+    --border:    #28203d;
+    --accent:    #b388ff; /* Neon Purple */
+    --accent2:   #18ffff; /* Neon Cyan */
+    --danger:    #ff5252;
+    --text:      #d1c4e9;
+    --muted:     #7e749c;
+    --best:      rgba(179,136,255,0.07);
+    --best-bd:   rgba(179,136,255,0.4);
+    --radius:    10px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    padding: 0 0 80px;
+  }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, #0d0b14 0%, #1a142b 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 48px 60px 36px;
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 80% 50%, rgba(179,136,255,0.08) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  header h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 700;
+    font-size: 2.2rem;
+    color: #fff;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+  header h1 span { color: var(--accent); }
+  header p.subtitle {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+
+  /* ── Summary strip ── */
+  .summary-strip {
+    display: flex;
+    gap: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .strip-item {
+    flex: 1;
+    background: var(--surface);
+    padding: 20px 28px;
+  }
+  .strip-item .s-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .strip-item .s-val {
+    font-family: 'Fraunces', serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .strip-item .s-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* ── Main layout ── */
+  main { padding: 48px 60px; }
+
+  section { margin-bottom: 52px; }
+  section h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  section h2 .tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 400;
+    background: var(--border);
+    color: var(--muted);
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* ── Sparkline canvas ── */
+  .spark-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin-bottom: 28px;
+  }
+  .spark-wrap p {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  canvas#sparkline { width: 100%; height: 80px; display: block; }
+
+  /* ── Tuning table ── */
+  .table-scroll { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
+  table.tune-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .tune-table thead tr {
+    background: #191426;
+    border-bottom: 2px solid var(--border);
+  }
+  .tune-table thead th {
+    text-align: left;
+    padding: 12px 16px;
+    color: var(--muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  .tune-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+  .tune-table tbody tr:hover { background: rgba(255,255,255,0.025); }
+  .tune-table tbody tr.best-row {
+    background: var(--best);
+    border-left: 2px solid var(--accent);
+  }
+  .tune-table td {
+    padding: 10px 16px;
+    color: var(--text);
+  }
+  .tune-table td.iter-num { color: var(--muted); font-size: 11px; }
+  .tune-table td.score-cell { color: var(--accent2); font-weight: 500; }
+  .best-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: #0d0b14;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.06em;
+  }
+
+  /* ── Filter bar ── */
+  .filter-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    align-items: center;
+  }
+  .filter-bar label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  .filter-bar select, .filter-bar input {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    outline: none;
+  }
+  .filter-bar select:focus, .filter-bar input:focus { border-color: var(--accent); }
+  #row-count { font-size: 11px; color: var(--muted); margin-left: auto; }
+
+  /* ── Best params banner ── */
+  .best-banner {
+    background: var(--best);
+    border: 1px solid var(--best-bd);
+    border-radius: var(--radius);
+    padding: 18px 24px;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .best-banner .bb-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+  }
+  .best-banner .bb-val {
+    font-size: 13px;
+    color: #fff;
+  }
+  .best-banner .bb-score {
+    margin-left: auto;
+    font-family: 'Fraunces', serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent2);
+  }
+
+  /* ── Split cards ── */
+  .split-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+  }
+  .split-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+  }
+  .split-title {
+    font-family: 'Fraunces', serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 16px;
+  }
+  .metric-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .metric-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .metric-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  .metric-val { font-family: 'Fraunces', serif; font-size: 1.25rem; font-weight: 700; color: var(--accent2); }
+
+  /* Confusion matrix */
+  .cm-wrap { margin-top: 4px; }
+  .cm-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+  .cm-table { border-collapse: collapse; font-size: 12px; width: 100%; }
+  .cm-table th, .cm-table td { padding: 8px 12px; text-align: center; border: 1px solid var(--border); }
+  .cm-table thead th { background: var(--bg); color: var(--muted); font-size: 10px; font-weight: 400; }
+  .cm-table tbody th { background: var(--bg); color: var(--muted); font-weight: 400; text-align: left; padding-left: 10px; }
+  .cm-tn, .cm-tp { color: var(--accent2); font-weight: 500; }
+  .cm-fp, .cm-fn { color: var(--danger); font-weight: 500; }
+
+  /* ── Tree info ── */
+  .tree-info {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .tree-pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 140px;
+  }
+  .tree-pill .tp-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  .tree-pill .tp-val { font-family: 'Fraunces', serif; font-size: 1.4rem; font-weight: 700; color: #fff; }
+
+  footer {
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+    margin-top: 40px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>AdaBoost <span>Tuning & Results Report</span></h1>
+  <p class="subtitle">Heart Failure Prediction &nbsp;·&nbsp; Grid Search &nbsp;·&nbsp; Scoring: f1_binary</p>
+</header>
+
+<div class="summary-strip">
+  <div class="strip-item">
+    <div class="s-label">Total Iterations</div>
+    <div class="s-val">10</div>
+    <div class="s-sub">exhaustive grid</div>
+  </div>
+  <div class="strip-item">
+    <div class="s-label">Best f1_binary</div>
+    <div class="s-val">0.8627</div>
+    <div class="s-sub">on validation set</div>
+  </div>
+  <div class="strip-item">
+    <div class="s-label">Ensemble Size</div>
+    <div class="s-val">50</div>
+    <div class="s-sub">weak learners</div>
+  </div>
+  <div class="strip-item">
+    <div class="s-label">Max Depth</div>
+    <div class="s-val">2</div>
+    <div class="s-sub">base estimator</div>
+  </div>
+</div>
+
+<main>
+
+  <section>
+    <h2>Hyperparameter Tuning Iterations <span class="tag">10 combos</span></h2>
+
+    <div class="spark-wrap">
+      <p>F1 score across iterations (chronological order)</p>
+      <canvas id="sparkline"></canvas>
+    </div>
+
+    <div class="best-banner">
+      <div>
+        <div class="bb-label">Best Configuration</div>
+        <div class="bb-val">n_estimators=50, max_depth=2</div>
+      </div>
+      <div class="bb-score">0.8627</div>
+    </div>
+
+    <div class="filter-bar">
+      <label>n_estimators</label>
+      <select id="filter-estimators">
+        <option value="">All</option>
+        <option>10</option>
+        <option>25</option>
+        <option>50</option>
+        <option>75</option>
+        <option>100</option>
+      </select>
+      <label>max_depth</label>
+      <select id="filter-depth">
+        <option value="">All</option>
+        <option>1</option>
+        <option>2</option>
+      </select>
+      <label>min score ≥</label>
+      <input id="filter-score" type="number" step="0.01" min="0" max="1" placeholder="0.00" style="width:80px"/>
+      <span id="row-count"></span>
+    </div>
+
+    <div class="table-scroll">
+      <table class="tune-table" id="tune-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>n_estimators</th>
+            <th>max_depth</th>
+            <th>f1_binary</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tune-tbody">
+
+        <tr class="">
+          <td class="iter-num">#1</td>
+          <td>10</td>
+          <td>1</td>
+          <td class="score-cell">0.8283</td>
+          <td></td>
+        </tr>
+        <tr class="">
+          <td class="iter-num">#2</td>
+          <td>10</td>
+          <td>2</td>
+          <td class="score-cell">0.8163</td>
+          <td></td>
+        </tr>
+        <tr class="">
+          <td class="iter-num">#3</td>
+          <td>25</td>
+          <td>1</td>
+          <td class="score-cell">0.8283</td>
+          <td></td>
+        </tr>
+        <tr class="">
+          <td class="iter-num">#4</td>
+          <td>25</td>
+          <td>2</td>
+          <td class="score-cell">0.8119</td>
+          <td></td>
+        </tr>
+        <tr class="">
+          <td class="iter-num">#5</td>
+          <td>50</td>
+          <td>1</td>
+          <td class="score-cell">0.8283</td>
+          <td></td>
+        </tr>
+        <tr class="best-row">
+          <td class="iter-num">#6</td>
+          <td>50</td>
+          <td>2</td>
+          <td class="score-cell">0.8627</td>
+          <td><span class="best-badge">★ BEST</span></td>
+        </tr>
+        <tr class="">
+          <td class="iter-num">#7</td>
+          <td>75</td>
+          <td>1</td>
+          <td class="score-cell">0.8283</td>
+          <td></td>
+        </tr>
+        <tr class="">
+          <td class="iter-num">#8</td>
+          <td>75</td>
+          <td>2</td>
+          <td class="score-cell">0.8627</td>
+          <td></td>
+        </tr>
+        <tr class="">
+          <td class="iter-num">#9</td>
+          <td>100</td>
+          <td>1</td>
+          <td class="score-cell">0.8283</td>
+          <td></td>
+        </tr>
+        <tr class="">
+          <td class="iter-num">#10</td>
+          <td>100</td>
+          <td>2</td>
+          <td class="score-cell">0.8627</td>
+          <td></td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Final Model Evaluation <span class="tag">train + val → test</span></h2>
+    <div class="split-grid">
+
+        <div class="split-card">
+          <h3 class="split-title">Train</h3>
+          <div class="metric-grid">
+            <div class="metric-box">
+              <span class="metric-label">Accuracy</span>
+              <span class="metric-val">0.8972</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">F1 Binary</span>
+              <span class="metric-val">0.9081</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">F1 Macro</span>
+              <span class="metric-val">0.8957</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">ROC-AUC</span>
+              <span class="metric-val">0.9698</span>
+            </div>
+          </div>
+          <div class="cm-wrap">
+            <p class="cm-label">Confusion Matrix</p>
+            <table class="cm-table">
+              <thead><tr><th></th><th>Pred 0</th><th>Pred 1</th></tr></thead>
+              <tbody>
+                <tr><th>Act 0</th><td class="cm-tn">250</td><td class="cm-fp">37</td></tr>
+                <tr><th>Act 1</th><td class="cm-fn">29</td><td class="cm-tp">326</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        
+        <div class="split-card">
+          <h3 class="split-title">Validation</h3>
+          <div class="metric-grid">
+            <div class="metric-box">
+              <span class="metric-label">Accuracy</span>
+              <span class="metric-val">0.9130</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">F1 Binary</span>
+              <span class="metric-val">0.9216</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">F1 Macro</span>
+              <span class="metric-val">0.9120</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">ROC-AUC</span>
+              <span class="metric-val">0.9646</span>
+            </div>
+          </div>
+          <div class="cm-wrap">
+            <p class="cm-label">Confusion Matrix</p>
+            <table class="cm-table">
+              <thead><tr><th></th><th>Pred 0</th><th>Pred 1</th></tr></thead>
+              <tbody>
+                <tr><th>Act 0</th><td class="cm-tn">37</td><td class="cm-fp">4</td></tr>
+                <tr><th>Act 1</th><td class="cm-fn">4</td><td class="cm-tp">47</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        
+        <div class="split-card">
+          <h3 class="split-title">Test</h3>
+          <div class="metric-grid">
+            <div class="metric-box">
+              <span class="metric-label">Accuracy</span>
+              <span class="metric-val">0.8696</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">F1 Binary</span>
+              <span class="metric-val">0.8800</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">F1 Macro</span>
+              <span class="metric-val">0.8686</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">ROC-AUC</span>
+              <span class="metric-val">0.9134</span>
+            </div>
+          </div>
+          <div class="cm-wrap">
+            <p class="cm-label">Confusion Matrix</p>
+            <table class="cm-table">
+              <thead><tr><th></th><th>Pred 0</th><th>Pred 1</th></tr></thead>
+              <tbody>
+                <tr><th>Act 0</th><td class="cm-tn">72</td><td class="cm-fp">10</td></tr>
+                <tr><th>Act 1</th><td class="cm-fn">14</td><td class="cm-tp">88</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        
+    </div>
+  </section>
+
+  <section>
+    <h2>Ensemble Structure</h2>
+    <div class="tree-info">
+      <div class="tree-pill">
+        <span class="tp-label">Base Estimator</span>
+        <span class="tp-val">Decision Tree</span>
+      </div>
+      <div class="tree-pill">
+        <span class="tp-label">Weak Learners</span>
+        <span class="tp-val">50</span>
+      </div>
+      <div class="tree-pill">
+        <span class="tp-label">Max Depth</span>
+        <span class="tp-val">2</span>
+      </div>
+    </div>
+  </section>
+
+  <footer>Generated by train_adaboost.py &nbsp;·&nbsp; Heart Failure Prediction</footer>
+
+</main>
+
+<script>
+// ── Sparkline ──────────────────────────────────────────────────────────────
+(function() {
+  const scores = [0.8283, 0.8163, 0.8283, 0.8119, 0.8283, 0.8627, 0.8283, 0.8627, 0.8283, 0.8627];
+  const canvas = document.getElementById('sparkline');
+  const dpr    = window.devicePixelRatio || 1;
+  canvas.width  = canvas.offsetWidth  * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  const pad = { t: 8, r: 12, b: 24, l: 40 };
+  const min = Math.min(...scores) - 0.01;
+  const max = Math.max(...scores) + 0.01;
+  const xScale = i => pad.l + (i / (scores.length - 1)) * (W - pad.l - pad.r);
+  const yScale = v => pad.t + (1 - (v - min) / (max - min)) * (H - pad.t - pad.b);
+
+  // grid lines
+  ctx.strokeStyle = '#28203d'; // Adjusted for new theme
+  ctx.lineWidth = 1;
+  [0.25, 0.5, 0.75, 1].forEach(t => {
+    const y = pad.t + (1 - t) * (H - pad.t - pad.b);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+  });
+
+  // fill
+  ctx.beginPath();
+  scores.forEach((s, i) => i === 0 ? ctx.moveTo(xScale(i), yScale(s)) : ctx.lineTo(xScale(i), yScale(s)));
+  ctx.lineTo(xScale(scores.length - 1), H - pad.b);
+  ctx.lineTo(xScale(0), H - pad.b);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(179,136,255,0.08)'; // Neon Purple fill
+  ctx.fill();
+
+  // line
+  ctx.beginPath();
+  scores.forEach((s, i) => i === 0 ? ctx.moveTo(xScale(i), yScale(s)) : ctx.lineTo(xScale(i), yScale(s)));
+  ctx.strokeStyle = '#b388ff'; // Neon Purple line
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // best dot
+  const bestScore = Math.max(...scores);
+  const bestIdx   = scores.indexOf(bestScore);
+  ctx.beginPath();
+  ctx.arc(xScale(bestIdx), yScale(bestScore), 4, 0, Math.PI * 2);
+  ctx.fillStyle = '#18ffff'; // Neon Cyan dot
+  ctx.fill();
+
+  // y-axis labels
+  ctx.fillStyle = '#7e749c';
+  ctx.font = '10px DM Mono, monospace';
+  ctx.textAlign = 'right';
+  [min + 0.01, (min + max) / 2, max - 0.01].forEach(v => {
+    ctx.fillText(v.toFixed(3), pad.l - 6, yScale(v) + 3);
+  });
+})();
+
+// ── Filter logic ──────────────────────────────────────────────────────────
+const tbody    = document.getElementById('tune-tbody');
+const allRows  = Array.from(tbody.querySelectorAll('tr'));
+const countEl  = document.getElementById('row-count');
+
+function applyFilters() {
+  const est    = document.getElementById('filter-estimators').value;
+  const depth  = document.getElementById('filter-depth').value;
+  const minSc  = parseFloat(document.getElementById('filter-score').value) || 0;
+  let visible  = 0;
+  allRows.forEach(row => {
+    const cells = row.querySelectorAll('td');
+    const e     = cells[1].textContent.trim();
+    const d     = cells[2].textContent.trim();
+    const score = parseFloat(cells[3].textContent.trim());
+    const show  = (est === '' || e === est)
+               && (depth === '' || d === depth)
+               && (score >= minSc);
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  countEl.textContent = `${visible} / ${allRows.length} rows`;
+}
+
+['filter-estimators','filter-depth','filter-score'].forEach(id =>
+  document.getElementById(id).addEventListener('input', applyFilters)
+);
+applyFilters();
+</script>
+</body>
+</html>
