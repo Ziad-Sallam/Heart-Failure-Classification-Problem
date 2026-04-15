@@ -76,7 +76,7 @@ This will:
 
 ---
 
-## Using the Decision Tree in Your Own Code
+## Using the Decision Tree 
 
 ### Basic usage
 ```python
@@ -126,7 +126,7 @@ metrics = evaluate(y_test, y_pred, y_proba, model_name="My Tree", split_name="Te
 
 ---
 
-## Using Bagging in Your Own Code
+## Using Bagging 
 
 ### Basic usage
 ```python
@@ -176,7 +176,7 @@ metrics = evaluate(y_test, y_pred, y_proba, model_name="Bagging", split_name="Te
 
 ---
 
-## Using Random Forest in Your Own Code
+## Using Random Forest 
 
 ### Basic usage
 ```python
@@ -234,7 +234,7 @@ print("Top features:", sorted(importances.items(), key=lambda x: x[1], reverse=T
 
 ---
 
-## Using AdaBoost in Your Own Code
+## Using AdaBoost 
 
 ### Basic usage
 ```python
