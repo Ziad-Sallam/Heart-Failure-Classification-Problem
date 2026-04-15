@@ -11,12 +11,16 @@ heart_failure/
 ├── data_preparation.py       # Data loading, encoding, scaling, splitting
 ├── models/
 │   ├── __init__.py
-│   └── decision_tree.py      # Decision Tree implementation (no sklearn)
+│   ├── decision_tree.py      # Decision Tree implementation (no sklearn)
+│   ├── bagging.py            # Bagging ensemble (Bootstrap Aggregating)
+│   └── random_forest.py      # Random Forest (Bagging + random feature subsets)
 ├── utils/
 │   ├── __init__.py
 │   ├── evaluation.py         # Metrics: accuracy, F1, AUC, confusion matrix
 │   └── tuning.py             # Grid search & random search
 ├── train_decision_tree.py    # Full training + tuning + evaluation script
+├── train_bagging.py          # Train, tune, and evaluate the Bagging ensemble
+├── train_random_forest.py    # Train, tune, and evaluate the Random Forest
 ├── results/                  # Output summaries saved here
 └── requirements.txt
 ```
@@ -120,6 +124,112 @@ metrics = evaluate(y_test, y_pred, y_proba, model_name="My Tree", split_name="Te
 
 ---
 
+## Using Bagging in Your Own Code
+
+### Basic usage
+```python
+from models.bagging import BaggingClassifier
+import numpy as np
+
+# Training data
+X_train = np.array([[2.5, 1.0], [1.0, 3.0], [3.0, 2.0], [1.5, 0.5]])
+y_train = np.array([0, 1, 0, 1])
+
+# Create and train the ensemble
+bag = BaggingClassifier(n_estimators=10, max_depth=5, random_seed=42)
+bag.fit(X_train, y_train)
+
+# Predict
+X_new = np.array([[2.0, 1.5], [1.2, 2.8]])
+predictions = bag.predict(X_new)
+print(predictions)  # e.g. [0, 1]
+
+# Predict probabilities
+probabilities = bag.predict_proba(X_new)
+print(probabilities)  # e.g. [[0.6, 0.4], [0.3, 0.7]]
+```
+
+### With the Heart Failure dataset
+```python
+from data_preparation import prepare_data
+from models.bagging import BaggingClassifier
+from utils.evaluation import evaluate
+
+# Load and split data
+splits, scaler, feature_names = prepare_data(csv_path="data/heart.csv")
+X_train, y_train = splits["train"]
+X_val,   y_val   = splits["val"]
+X_test,  y_test  = splits["test"]
+
+# Train
+bag = BaggingClassifier(n_estimators=50, max_depth=5, min_samples_split=2, min_samples_leaf=1, random_seed=42)
+bag.fit(X_train, y_train)
+
+# Evaluate on test set
+y_pred  = bag.predict(X_test)
+y_proba = bag.predict_proba(X_test)[:, 1]  # probability of positive class
+
+metrics = evaluate(y_test, y_pred, y_proba, model_name="Bagging", split_name="Test")
+```
+
+---
+
+## Using Random Forest in Your Own Code
+
+### Basic usage
+```python
+from models.random_forest import RandomForest
+import numpy as np
+
+# Training data
+X_train = np.array([[2.5, 1.0], [1.0, 3.0], [3.0, 2.0], [1.5, 0.5]])
+y_train = np.array([0, 1, 0, 1])
+
+# Create and train the ensemble
+rf = RandomForest(n_estimators=50, max_features='sqrt', max_depth=10, random_seed=42)
+rf.fit(X_train, y_train)
+
+# Predict
+X_new = np.array([[2.0, 1.5], [1.2, 2.8]])
+predictions = rf.predict(X_new)
+print(predictions)  # e.g. [0, 1]
+
+# Predict probabilities
+probabilities = rf.predict_proba(X_new)
+print(probabilities)  # e.g. [[0.7, 0.3], [0.2, 0.8]]
+
+# Feature importances
+importances = rf.feature_importances()
+print(importances)  # dict of feature -> importance score
+```
+
+### With the Heart Failure dataset
+```python
+from data_preparation import prepare_data
+from models.random_forest import RandomForest
+from utils.evaluation import evaluate
+
+# Load and split data
+splits, scaler, feature_names = prepare_data(csv_path="data/heart.csv")
+X_train, y_train = splits["train"]
+X_val,   y_val   = splits["val"]
+X_test,  y_test  = splits["test"]
+
+# Train
+rf = RandomForest(n_estimators=50, max_features='sqrt', max_depth=10, min_samples_split=2, min_samples_leaf=1, random_seed=42)
+rf.fit(X_train, y_train)
+
+# Evaluate on test set
+y_pred  = rf.predict(X_test)
+y_proba = rf.predict_proba(X_test)[:, 1]  # probability of positive class
+
+metrics = evaluate(y_test, y_pred, y_proba, model_name="Random Forest", split_name="Test")
+
+# Get feature importances
+importances = rf.feature_importances()
+print("Top features:", sorted(importances.items(), key=lambda x: x[1], reverse=True)[:5])
+```
+
 ## Hyperparameter Reference
 
 | Parameter           | Type        | Default | Description                                              |
@@ -140,6 +250,53 @@ param_grid = {
 ```
 
 ---
+
+## Hyperparameter Reference for Bagging
+
+| Parameter           | Type        | Default | Description                                              |
+|---------------------|-------------|---------|----------------------------------------------------------|
+| `n_estimators`      | int         | 10      | Number of trees in the ensemble.                         |
+| `max_samples`       | float       | 1.0     | Fraction of training samples per bootstrap (1.0 = same size). |
+| `max_depth`         | int or None | None    | Maximum depth of each tree. `None` = grow until pure.    |
+| `min_samples_split` | int         | 2       | Minimum samples in a node required to attempt a split.   |
+| `min_samples_leaf`  | int         | 1       | Minimum samples required in each child after a split.    |
+| `n_features`        | int / str / None | None | Features to consider per split: `None` (all), `'sqrt'`, `'log2'`, or an integer. |
+| `random_seed`       | int         | 42      | Seed for bootstrap sampling and tree reproducibility.    |
+
+### Recommended ranges for tuning Bagging
+```python
+param_grid = {
+    "n_estimators":      [10, 20, 50],
+    "max_depth":         [3, 5, 10, None],
+    "min_samples_split": [2, 5],
+    "min_samples_leaf":  [1, 2],
+}
+```
+
+---
+
+## Hyperparameter Reference for Random Forest
+
+| Parameter           | Type              | Default | Description                                              |
+|---------------------|-------------------|---------|----------------------------------------------------------|
+| `n_estimators`      | int               | 100     | Number of trees in the ensemble.                         |
+| `max_features`      | int / float / str / None | 'sqrt' | Features to consider per split: `'sqrt'`, `'log2'`, float fraction, or integer. |
+| `max_samples`       | float             | 1.0     | Fraction of training samples per bootstrap (1.0 = same size). |
+| `max_depth`         | int or None       | None    | Maximum depth of each tree. `None` = grow until pure.    |
+| `min_samples_split` | int               | 2       | Minimum samples in a node required to attempt a split.   |
+| `min_samples_leaf`  | int               | 1       | Minimum samples required in each child after a split.    |
+| `random_seed`       | int               | 42      | Seed for bootstrap sampling and tree reproducibility.    |
+
+### Recommended ranges for tuning Random Forest
+```python
+param_grid = {
+    "n_estimators":      [50, 100, 200],
+    "max_features":      ['sqrt', 'log2'],
+    "max_depth":         [5, 10, None],
+    "min_samples_split": [2, 5],
+    "min_samples_leaf":  [1, 2],
+}
+```
 
 ## Hyperparameter Tuning
 
@@ -187,6 +344,51 @@ best_model, best_params, all_results = random_search(
 )
 ```
 
+### Grid search for Bagging
+```python
+from utils.tuning import grid_search
+from models.bagging import BaggingClassifier
+
+param_grid = {
+    "n_estimators":      [10, 20, 50],
+    "max_depth":         [3, 5, 10],
+    "min_samples_split": [2, 5],
+    "min_samples_leaf":  [1, 2],
+}
+
+best_model, best_params, all_results = grid_search(
+    model_cls = BaggingClassifier,
+    param_grid = param_grid,
+    X_train = X_train, y_train = y_train,
+    X_val   = X_val,   y_val   = y_val,
+    scoring = "f1_binary",
+    verbose = True,
+)
+```
+
+### Grid search for Random Forest
+```python
+from utils.tuning import grid_search
+from models.random_forest import RandomForest
+
+param_grid = {
+    "n_estimators":      [50, 100],
+    "max_features":      ['sqrt', 'log2'],
+    "max_depth":         [5, 10, None],
+    "min_samples_split": [2, 5],
+    "min_samples_leaf":  [1, 2],
+}
+
+best_model, best_params, all_results = grid_search(
+    model_cls = RandomForest,
+    param_grid = param_grid,
+    X_train = X_train, y_train = y_train,
+    X_val   = X_val,   y_val   = y_val,
+    scoring = "f1_binary",
+    verbose = True,
+)
+```
+
 ---
 
 ## Tree Diagnostics
@@ -197,6 +399,24 @@ tree.fit(X_train, y_train)
 print(tree.get_depth())    # actual depth of the fitted tree
 print(tree.count_leaves()) # number of leaf nodes
 print(repr(tree))          # DecisionTree(max_depth=10, ...)
+```
+
+## Ensemble Diagnostics
+
+```python
+bag.fit(X_train, y_train)
+
+print(len(bag.estimators_))  # number of trees
+print(repr(bag))             # BaggingClassifier(n_estimators=50, ...)
+
+rf.fit(X_train, y_train)
+
+print(len(rf.estimators_))   # number of trees
+print(repr(rf))              # RandomForest(n_estimators=100, ...)
+# Feature importances (Random Forest only)
+importances = rf.feature_importances()
+for feat, imp in sorted(importances.items(), key=lambda x: x[1], reverse=True):
+    print(f"{feat}: {imp:.3f}")
 ```
 
 ---
@@ -268,19 +488,6 @@ This part extends the project with two from-scratch ensemble classifiers built o
 
 ---
 
-### New Files
-
-```
-heart_failure/
-├── models/
-│   ├── bagging.py            # Bagging ensemble (Bootstrap Aggregating)
-│   └── random_forest.py      # Random Forest (Bagging + random feature subsets)
-├── train_bagging.py          # Train, tune, and evaluate the Bagging ensemble
-└── train_random_forest.py    # Train, tune, and evaluate the Random Forest
-```
-
----
-
 ### How to Run
 
 ```bash
@@ -345,7 +552,7 @@ With 11 features, `sqrt` ≈ **3 features** evaluated per split.
 
 ### Results Summary
 
-#### Descision Tree
+#### Decision Tree
 
 | Split | Accuracy | F1 (binary) | ROC-AUC |
 |---|---|---|---|
